@@ -1,7 +1,7 @@
 import pygame
 
 
-def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=2000, gap="auto", font="Arial", rotate=0, align=("left", "top"), background=None):
+def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=2000, gap="auto", font="Arial", rotate=0, rotate_mode="centre", align=("left", "top"), background=None):
     """Creates a textbox.
     text - str - the text to be written
     colour - list (int, int, int) - the colour of the text
@@ -11,11 +11,12 @@ def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=
     max_len - int - the maximum length (in pixels) of a line before the text wraps around
     gap - int, str "auto" - the gap between lines.
     font - str - the font used. if not a valid font, reverts to pygame's default, which you can find out with the pygame.font.get_default_font() command.
-    rotate - int - how far (clockwise) to rotate the text.
+    rotate - int - how far (clockwise) to rotate the text. it tends to do unexpected things if not a multiple of 90.
+    rotate_mode - str - the mode of rotation. for "centre", when written onto the screen, it is rotated around its centre. if "absolute" it is rotated and then that surface is aligned.
     align - list (str, str) - the alignment of the text. first string can be "left", "centre" or "right". second string can be "top", "centre" or "bottom".
     background - list (int, int, int), NoneType - the background colour. if NoneType, the background will be transparent.
     returns list(pygame.Surface, list(int, int, int))
-    the pygame.Surface is the surface the textbox is written onto, and is returned regardless of whether it is blitted onto the screen in the function."""
+    the pygame.Surface is the surface the textbox is written onto, and is returned regardless of whether it is blitted onto the screen in the function, and is as it was before rotation"""
     
     if gap == "auto":
         gap = size // 3
@@ -75,6 +76,7 @@ def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=
                         a = line_surface.get_width()
                     inc -= 1
                     line_surface = font_obj.render(" ".join(line.split()[:inc]), False, colour)
+                    a = line_surface.get_width()
             height += size + gap
             if a > width:
                 width = a
@@ -99,15 +101,20 @@ def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=
             
             inc = len(line.split())
     width += 2 * gap
-    height += gap
+    height += 2 * gap
     temp_surface = pygame.Surface((width, height))
     temp_surface.fill(background)
     temp_surface.blit(text_surface, (gap, gap))
     text_surface = temp_surface
     if transparent:
         text_surface.set_colorkey(background)
+    plain_text_surface = text_surface
     
     if (screen, coords) != (None, None):
+        if rotate_mode == "absolute":
+            text_surface = pygame.transform.rotate(text_surface, rotate)
+        else:
+            a, b = text_surface.get_size()
         x, y = coords
         if align[0] == "centre":
             x -= text_surface.get_width() // 2
@@ -118,6 +125,12 @@ def text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=
             y -= text_surface.get_height() // 2
         elif align[1] == "bottom":
             y -= text_surface.get_height()
-
+        
+        if rotate_mode == "centre":
+            text_surface = pygame.transform.rotate(text_surface, rotate)
+            c, d = text_surface.get_size()
+            x -= (c - a) // 2
+            y -= (d - b) // 2
+        
         screen.blit(text_surface, (x, y))
-    return text_surface
+    return plain_text_surface
