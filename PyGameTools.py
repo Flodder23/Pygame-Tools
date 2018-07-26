@@ -1,7 +1,143 @@
 import pygame
 
 
-def other_text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=None, gap="auto", font="Arial", italic_font="auto", bold_font="auto", rotate=0, rotate_mode="centre", align=("left", "top"), background=None):
+def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=True):
+    """Crops a surface to delete as much backround (of the given colour) as possible"""
+    if left:
+        x = 0
+        y = -1
+        colour = tuple(colour)
+        col = colour
+        not_there = False
+        while col == colour:
+            y += 1
+            if y == surface.get_height():
+                y = 0
+                x += 1
+            if x == surface.get_height():
+                not_there = True
+                col = colour
+            else: col = surface.get_at((x, y))
+        if not_there:
+            l_crop = 0
+            right = False
+            top = False
+            bottom = False
+        else: l_crop = x
+    else: l_crop = 0
+        
+    if right:
+        x = surface.get_width() - 1
+        y = -1
+        col = colour
+        while col == colour:
+            y += 1
+            if y == surface.get_height():
+                x -= 1
+                y = 0
+            col = surface.get_at((x, y))
+        r_crop = x + 1
+    else: r_crop = surface.get_width()
+    
+    if top:
+        x = -1
+        y = 0
+        col = colour
+        while col == colour:
+            x += 1
+            if x == surface.get_width():
+                x = 0
+                y += 1
+            col = surface.get_at((x, y))
+        t_crop = y
+    else: t_crop = 0
+    
+    if bottom:
+        x = -1
+        y = surface.get_height() - 1
+        col = colour
+        while col == colour:
+            x += 1
+            if x == surface.get_width():
+                x = 0
+                y -= 1
+            col = surface.get_at((x, y))
+        b_crop = y
+    else: b_crop = surface.get_height()
+    
+    result_surface = pygame.Surface((r_crop - l_crop + 2 * cushion, b_crop - t_crop + 2 * cushion))
+    result_surface.fill(colour)
+    result_surface.blit(surface, (cushion, cushion), area=(l_crop, t_crop, r_crop, b_crop))
+    return result_surface
+    
+
+def join(surface1, surface2, background, cushion=0, transparent=False, align=(("right", "outside"), ("top", "inside"))):
+    """joins surface1 onto surface2.
+    surface1 - pygame.Surface - the surface to stick surface 2 next to
+    surface2 - pygame.Surface - the surface to stick next to surface1
+    cushion - int - the cushion (space) in pixels betweeen the surfaces
+    background - list(int, int, int) - the colour of the background. if transparent is True, this will be the colour selected to be transparent.
+    align - list((str1, str2), (str3, str4)) - how to align surface1 relative to surface2.
+    str1 can be "left", "centre" or "right"
+    str2 can be "inside" or "outside"
+    str3 can be "top", "centre" or "bottom".
+    str4 can be "inside" or "outside"."""
+    
+    if align[0][0] == "centre":
+        width = max(surface1.get_width(), surface2.get_width())
+        x1 = (width - surface1.get_width()) // 2
+        x2 = (width - surface2.get_width()) // 2
+    else:
+        if align[0][1] == "inside": width = max(surface1.get_width(), surface2.get_width())
+        else: width = surface1.get_width() + surface2.get_width() + cushion
+        
+        if align[0][0] == "left":
+            if align[0][1] == "inside":
+                x1 = 0
+                x2 = 0
+            else:
+                x1 = surface2.get_width() + cushion
+                x2 = 0
+        else:
+            if align[0][1] == "inside":
+                x1 = width - surface1.get_width()
+                x2 = width - surface2.get_width()
+            else:
+                x1 = 0
+                x2 = surface1.get_width() + cushion
+
+    if align[1][0] == "centre":
+        height = max(surface1.get_height(), surface2.get_height())
+        y1 = (height - surface1.get_height()) // 2
+        y2 = (height - surface2.get_height()) // 2
+    else:
+        if align[1][1] == "inside": height = max(surface1.get_height(), surface2.get_height())
+        else: height = surface1.get_height() + surface2.get_height() + cushion
+
+        if align[1][0] == "top":
+            if align[1][1] == "inside":
+                y1 = 0
+                y2 = 0
+            else:
+                y1 = surface2.get_height() + cushion
+                y2 = 0
+        else:
+            if align[1][1] == "inside":
+                y1 = height - surface1.get_height()
+                y2 = height - surface1.get_height()
+            else:
+                y1 = 0
+                y2 = surface1.get_height() + cushion
+
+    result_surface = pygame.Surface((width, height))
+    result_surface.fill(background)
+    if transparent: result_surface.set_colorkey(background)
+    result_surface.blit(surface1, (x1, y1))
+    result_surface.blit(surface2, (x2, y2))
+    return result_surface
+    
+
+def write(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=None, gap="auto", font="Arial", italic_font="auto", bold_font="auto", rotate=0, rotate_mode="centre", align=("left", "top"), background=None):
     """Creates a textbox.
     text - str - the text to be written
     colour - list (int, int, int) - the colour of the text
@@ -15,29 +151,24 @@ def other_text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, ma
     rotate_mode - str - the mode of rotation. for "centre", when written onto the screen, it is rotated around its centre. if "absolute" it is rotated and then that surface is aligned.
     align - list (str, str) - the alignment of the text. first string can be "left", "centre" or "right". second string can be "top", "centre" or "bottom".
     background - list (int, int, int), NoneType - the background colour. if NoneType, the background will be transparent.
-    returns list(pygame.Surface, list(int, int, int))
-    the pygame.Surface is the surface the textbox is written onto, and is returned regardless of whether it is blitted onto the screen in the function, and is as it was before rotation"""
+    returns pygame.Surface - the surface the textbox is written onto, and is returned regardless of whether it is blitted onto the screen in the function, and is as it was before rotation"""
     
-    if gap == "auto":
-        gap = size // 3
+    if gap == "auto": gap = size // 3
     if background is None:
         background = [255 - c for c in colour]
         transparent = True
-    else:
-        transparent = False
+    else: transparent = False
     font_obj = pygame.font.SysFont(font, size)
     text_surface = pygame.Surface((0, 0))
     text_surface.fill(background)
     text = [t.split() for t in text.split("\n")]
-    width = 0
-    height = 0
-    space = font_obj.size(" ")[0]
+    space, height = font_obj.size(" ")
 
     for line in text:
-        line_surface = pygame.Surface((0, 0))
+        line_surface = pygame.Surface((0, height))
         line_surface.fill(background)
         for word in line:
-            word_surface = pygame.Surface((0, 0))
+            word_surface = pygame.Surface((0, height))
             word_surface.fill(background)
             asterisks = 0
             for letter in word:
@@ -54,110 +185,38 @@ def other_text_box(text, colour=(0, 0, 0), size=20, screen=None, coords=None, ma
                         font_obj.set_bold(not font_obj.get_bold())
                     asterisks = 0
                     letter_surface = font_obj.render(letter, False, colour)
-                    if font_obj.get_italic():
-                        x = 0
-                        y = -1
-                        col = background
-                        while col != tuple(colour):
-                            y += 1
-                            if y == letter_surface.get_height():
-                                y = 0
-                                x += 1
-                            col = letter_surface.get_at((x, y))
-                        left = x
-                        x = letter_surface.get_width() - 1
-                        y = -1
-                        col = background
-                        while col != tuple(colour):
-                            y += 1
-                            if y == letter_surface.get_height():
-                                x -= 1
-                                y = 0
-                            col = letter_surface.get_at((x, y))
-                        right = x + 1.
-                        temp_surface = pygame.Surface((right - left, letter_surface.get_height()))
-                        temp_surface.fill(background)
-                        temp_surface.blit(letter_surface, (0, 0), area=(left, 0, right, letter_surface.get_height()))
-                        letter_surface = temp_surface
-                    temp_surface = pygame.Surface((letter_surface.get_width() + word_surface.get_width(), max(letter_surface.get_height(), word_surface.get_height())))
-                    temp_surface.fill(background)
-                    temp_surface.blit(word_surface, (0, 0))
-                    temp_surface.blit(letter_surface, (word_surface.get_width(), 0))
-                    word_surface = temp_surface
+                    if font_obj.get_italic():  # italics don't come out right so this is needed to crop them properly
+                        letter_surface = crop(letter_surface, background, top=False, bottom=False)
+                        cushion = 1
+                    else: cushion = 0
+                    word_surface = join(word_surface, letter_surface, background, cushion=cushion)
             if max_len is None:
-                temp_surface = pygame.Surface((line_surface.get_width() + word_surface.get_width() + space, max(line_surface.get_height(), word_surface.get_height())))
-                temp_surface.fill(background)
-                temp_surface.blit(line_surface, (0, 0))
-                temp_surface.blit(word_surface, (line_surface.get_width() + space, 0))
-                line_surface = temp_surface
+                line_surface = join(line_surface, word_surface, background, cushion=space)
             else:
-                if line_surface.get_width() == 0:
-                    line_surface = word_surface
+                if line_surface.get_width() == 0: line_surface = word_surface
                 else:
                     if line_surface.get_width() + word_surface.get_width() + space <= max_len:
-                        temp_surface = pygame.Surface((line_surface.get_width() + word_surface.get_width() + space, max(line_surface.get_height(), word_surface.get_height())))
-                        temp_surface.fill(background)
-                        temp_surface.blit(line_surface, (0, 0))
-                        temp_surface.blit(word_surface, (line_surface.get_width() + space, 0))
-                        line_surface = temp_surface
+                        line_surface = join(line_surface, word_surface, background, cushion=space)
                     else:
-                        width = max(width, line_surface.get_width())
-                        height += size + gap
-                        temp_surface = pygame.Surface((width, height))
-                        temp_surface.fill(background)
-                        if align[0] == "left":
-                            temp_surface.blit(text_surface, (0, 0))
-                            temp_surface.blit(line_surface, (0, text_surface.get_height()))
-                        elif align[0] == "centre":
-                            temp_surface.blit(text_surface,
-                                              ((width - text_surface.get_width()) // 2, 0))
-                            temp_surface.blit(line_surface, (
-                            (width - line_surface.get_width()) // 2, text_surface.get_height()))
-                        else:
-                            temp_surface.blit(text_surface, (width - text_surface.get_width(), 0))
-                            temp_surface.blit(line_surface, (
-                            width - line_surface.get_width(), text_surface.get_height()))
-                        text_surface = temp_surface
+                        text_surface = join(text_surface, line_surface, background, cushion=gap, align=((align[0], "inside"), ("bottom", "outside")))
                         line_surface = word_surface
-            if asterisks == 1:
-                font_obj.set_italic(not font_obj.get_italic())
-            elif asterisks == 2:
-                font_obj.set_bold(not font_obj.get_bold())
-        width = max(width, line_surface.get_width())
-        height += size + gap
-        temp_surface = pygame.Surface((width, height))
-        temp_surface.fill(background)
-        if align[0] == "left":
-            temp_surface.blit(text_surface, (0, 0))
-            temp_surface.blit(line_surface, (0, text_surface.get_height()))
-        elif align[0] == "centre":
-            temp_surface.blit(text_surface, ((width - text_surface.get_width()) // 2, 0))
-            temp_surface.blit(line_surface,
-                              ((width - line_surface.get_width()) // 2, text_surface.get_height()))
-        else:
-            temp_surface.blit(text_surface, (width - text_surface.get_width(), 0))
-            temp_surface.blit(line_surface,
-                              (width - line_surface.get_width(), text_surface.get_height()))
-        text_surface = temp_surface
+            if asterisks == 1: font_obj.set_italic(not font_obj.get_italic())
+            elif asterisks == 2: font_obj.set_bold(not font_obj.get_bold())
+        text_surface = join(text_surface, line_surface, background, cushion=gap, align=((align[0], "inside"), ("bottom", "outside")))
+    plain_text_surface = text_surface
     if (screen, coords) != (None, None):
-        if rotate_mode == "absolute":
-            text_surface = pygame.transform.rotate(text_surface, rotate)
-        else:
-            a, b = text_surface.get_size()
+        if rotate_mode == "absolute": text_surface = pygame.transform.rotate(text_surface, rotate)
+        else: a, b = text_surface.get_size()
         x, y = coords
-        if align[0] == "centre":
-            x -= text_surface.get_width() // 2
-        elif align[0] == "right":
-            x -= text_surface.get_width()
-        if align[1] == "centre":
-            y -= text_surface.get_height() // 2
-        elif align[1] == "bottom":
-            y -= text_surface.get_height()
+        if align[0] == "centre": x -= text_surface.get_width() // 2
+        elif align[0] == "right": x -= text_surface.get_width()
+        if align[1] == "centre": y -= text_surface.get_height() // 2
+        elif align[1] == "bottom": y -= text_surface.get_height()
         if rotate_mode == "centre":
             text_surface = pygame.transform.rotate(text_surface, rotate)
             c, d = text_surface.get_size()
             x -= (c - a) // 2
             y -= (d - b) // 2
-        if transparent:
-            text_surface.set_colorkey(background)
+        if transparent: text_surface.set_colorkey(background)
         screen.blit(text_surface, (x, y))
+    return plain_text_surface
