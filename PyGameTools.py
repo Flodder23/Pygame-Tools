@@ -1,15 +1,20 @@
 import pygame
 
 
-def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=True):
-    """Crops a surface to delete as much backround (of the given colour) as possible"""
+def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=True, include=False):
+    """Crops a surface to delete as much background as possible.
+    if include is False, it will crop to delete as much of that colour as possible, while not deleting any ther colour
+    if include is True, it will crop to keep all pixels of that colour"""
+    colour = tuple(colour)
     if left:
         x = 0
         y = -1
-        colour = tuple(colour)
-        col = colour
+        if include:
+            col = tuple([255 - c for c in colour])
+        else:
+            col = colour
         not_there = False
-        while col == colour:
+        while (not include and col == colour) or (include and col != colour):
             y += 1
             if y == surface.get_height():
                 y = 0
@@ -29,8 +34,11 @@ def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=Tru
     if right:
         x = surface.get_width() - 1
         y = -1
-        col = colour
-        while col == colour:
+        if include:
+            col = tuple([255 - c for c in colour])
+        else:
+            col = colour
+        while (not include and col == colour) or (include and col != colour):
             y += 1
             if y == surface.get_height():
                 x -= 1
@@ -42,8 +50,11 @@ def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=Tru
     if top:
         x = -1
         y = 0
-        col = colour
-        while col == colour:
+        if include:
+            col = tuple([255 - c for c in colour])
+        else:
+            col = colour
+        while (not include and col == colour) or (include and col != colour):
             x += 1
             if x == surface.get_width():
                 x = 0
@@ -55,8 +66,11 @@ def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=Tru
     if bottom:
         x = -1
         y = surface.get_height() - 1
-        col = colour
-        while col == colour:
+        if include:
+            col = tuple([255 - c for c in colour])
+        else:
+            col = colour
+        while (not include and col == colour) or (include and col != colour):
             x += 1
             if x == surface.get_width():
                 x = 0
@@ -66,8 +80,14 @@ def crop(surface, colour, cushion=0, left=True, right=True, top=True, bottom=Tru
     else: b_crop = surface.get_height()
     
     result_surface = pygame.Surface((r_crop - l_crop + 2 * cushion, b_crop - t_crop + 2 * cushion))
-    result_surface.fill(colour)
+    if include:
+        colourkey = surface.get_colorkey()
+        surface.set_colorkey(None)
+    else:
+        result_surface.fill(colour)
     result_surface.blit(surface, (cushion, cushion), area=(l_crop, t_crop, r_crop, b_crop))
+    if include:
+        result_surface.set_colorkey(colourkey)
     return result_surface
     
 
@@ -137,7 +157,7 @@ def join(surface1, surface2, background, cushion=0, transparent=False, align=(("
     return result_surface
     
 
-def write(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=None, gap="auto", font="Arial", italic_font="auto", bold_font="auto", rotate=0, rotate_mode="centre", align=("left", "top"), background=None):
+def write(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=None, gap="auto", font="Arial", rotate=0, rotate_mode="centre", align=("left", "top"), background=None):
     """Creates a textbox.
     text - str - the text to be written
     colour - list (int, int, int) - the colour of the text
@@ -186,7 +206,7 @@ def write(text, colour=(0, 0, 0), size=20, screen=None, coords=None, max_len=Non
                     asterisks = 0
                     letter_surface = font_obj.render(letter, False, colour)
                     if font_obj.get_italic():  # italics don't come out right so this is needed to crop them properly
-                        letter_surface = crop(letter_surface, background, top=False, bottom=False)
+                        letter_surface = crop(letter_surface, colour, top=False, bottom=False, include=True)
                         cushion = 1
                     else: cushion = 0
                     word_surface = join(word_surface, letter_surface, background, cushion=cushion)
